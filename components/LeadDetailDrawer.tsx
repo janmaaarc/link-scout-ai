@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Lead, LeadStatus, EnrichmentStatus } from '../types';
-import { X, ExternalLink, Mail, Phone, MapPin, Calendar, Sparkles, Copy, Check, Send, User } from 'lucide-react';
+import { X, ExternalLink, Mail, Phone, MapPin, Calendar, Sparkles, Copy, Check, Send, User, Loader2, AlertCircle } from 'lucide-react';
 import { generateDraftEmail } from '../services/geminiService';
 
 interface LeadDetailDrawerProps {
@@ -29,6 +30,47 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({ lead, isOpen
     navigator.clipboard.writeText(draftEmail);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const renderEnrichmentField = (value: string | undefined, icon: React.ReactNode, type: 'email' | 'phone' | 'location') => {
+    // 1. Pending State
+    if (lead.enrichmentStatus === EnrichmentStatus.PENDING) {
+      return (
+        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 italic">
+          {icon}
+          <Loader2 className="w-3 h-3 mr-2 animate-spin ml-1" />
+          <span>Enrichment Pending...</span>
+        </div>
+      );
+    }
+    
+    // 2. Failed State
+    if (lead.enrichmentStatus === EnrichmentStatus.FAILED) {
+      return (
+        <div className="flex items-center text-sm text-red-500 dark:text-red-400">
+          {icon}
+          <span>Not found</span>
+        </div>
+      );
+    }
+
+    // 3. Enriched (Success) but potentially empty
+    if (!value) {
+      return (
+        <div className="flex items-center text-sm text-gray-400 dark:text-gray-500 italic">
+          {icon}
+          <span>Not available</span>
+        </div>
+      );
+    }
+
+    // 4. Success with Data
+    return (
+      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+        {icon}
+        <span className="truncate">{value}</span>
+      </div>
+    );
   };
 
   return (
@@ -95,23 +137,21 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({ lead, isOpen
 
               {/* Contact Info */}
               <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 space-y-3 border border-gray-100 dark:border-gray-700">
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contact Information</h3>
-                <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                  <Mail className="w-4 h-4 mr-3 text-gray-400" />
-                  {lead.email || <span className="text-gray-400 italic">Not enriched yet</span>}
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contact Information</h3>
+                  {lead.enrichmentStatus === EnrichmentStatus.FAILED && (
+                     <span className="text-[10px] text-red-500 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">Enrichment Failed</span>
+                  )}
                 </div>
-                <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                  <Phone className="w-4 h-4 mr-3 text-gray-400" />
-                  {lead.phone || <span className="text-gray-400 italic">Not enriched yet</span>}
-                </div>
-                <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                  <MapPin className="w-4 h-4 mr-3 text-gray-400" />
-                  {lead.location || 'Unknown'}
-                </div>
+                
+                {renderEnrichmentField(lead.email, <Mail className="w-4 h-4 mr-3 text-gray-400" />, 'email')}
+                {renderEnrichmentField(lead.phone, <Phone className="w-4 h-4 mr-3 text-gray-400" />, 'phone')}
+                {renderEnrichmentField(lead.location, <MapPin className="w-4 h-4 mr-3 text-gray-400" />, 'location')}
+                
                  <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
                   <ExternalLink className="w-4 h-4 mr-3 text-blue-500" />
                   <a href={lead.linkedinUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate">
-                    {lead.linkedinUrl}
+                    {lead.linkedinUrl || "LinkedIn Profile"}
                   </a>
                 </div>
               </div>
@@ -122,12 +162,12 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({ lead, isOpen
                   <Sparkles className="w-4 h-4 mr-2 text-purple-500" />
                   Gemini Analysis
                 </h3>
-                <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-100 dark:border-purple-800/50">
+                <div className={`p-4 rounded-lg border ${lead.aiScore === 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800' : 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800/50'}`}>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-purple-900 dark:text-purple-300">Relevance Score</span>
-                    <span className="text-lg font-bold text-purple-700 dark:text-purple-400">{lead.aiScore}/100</span>
+                    <span className={`text-sm font-medium ${lead.aiScore === 0 ? 'text-red-800 dark:text-red-300' : 'text-purple-900 dark:text-purple-300'}`}>Relevance Score</span>
+                    <span className={`text-lg font-bold ${lead.aiScore === 0 ? 'text-red-700 dark:text-red-400' : 'text-purple-700 dark:text-purple-400'}`}>{lead.aiScore}/100</span>
                   </div>
-                  <p className="text-sm text-purple-800 dark:text-purple-200 leading-relaxed">
+                  <p className={`text-sm leading-relaxed ${lead.aiScore === 0 ? 'text-red-700 dark:text-red-300' : 'text-purple-800 dark:text-purple-200'}`}>
                     {lead.aiReasoning}
                   </p>
                 </div>
@@ -167,23 +207,35 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({ lead, isOpen
                 <div className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="flex justify-between items-center">
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Draft Content</h3>
-                    <button 
-                      onClick={copyToClipboard}
-                      className="text-xs flex items-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
-                    >
-                      {copied ? <Check className="w-3 h-3 mr-1 text-green-500" /> : <Copy className="w-3 h-3 mr-1" />}
-                      {copied ? 'Copied' : 'Copy'}
-                    </button>
+                    {draftEmail.startsWith('Error:') ? null : (
+                      <button 
+                        onClick={copyToClipboard}
+                        className="text-xs flex items-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
+                      >
+                        {copied ? <Check className="w-3 h-3 mr-1 text-green-500" /> : <Copy className="w-3 h-3 mr-1" />}
+                        {copied ? 'Copied' : 'Copy'}
+                      </button>
+                    )}
                   </div>
-                  <textarea 
-                    value={draftEmail}
-                    onChange={(e) => setDraftEmail(e.target.value)}
-                    className="w-full h-64 p-4 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none font-mono text-gray-800 dark:text-gray-200"
-                  />
-                  <button className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm flex items-center justify-center transition-colors">
-                    <Send className="w-4 h-4 mr-2" />
-                    Send via Email Client
-                  </button>
+                  
+                  {draftEmail.startsWith('Error:') ? (
+                    <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300 flex items-start gap-2">
+                       <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                       <div>{draftEmail}</div>
+                    </div>
+                  ) : (
+                    <>
+                      <textarea 
+                        value={draftEmail}
+                        onChange={(e) => setDraftEmail(e.target.value)}
+                        className="w-full h-64 p-4 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none font-mono text-gray-800 dark:text-gray-200"
+                      />
+                      <button className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm flex items-center justify-center transition-colors">
+                        <Send className="w-4 h-4 mr-2" />
+                        Send via Email Client
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lead, LeadStatus, EnrichmentStatus } from '../types';
-import { X, Save, User, Building, MapPin, Linkedin, Link as LinkIcon } from 'lucide-react';
+import { X, Save, User, Building, MapPin, Linkedin, Calendar, Clock } from 'lucide-react';
 
 interface AddLeadModalProps {
   isOpen: boolean;
@@ -16,6 +16,8 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onA
     location: '',
     linkedinUrl: '',
     postContent: '',
+    postDate: new Date().toISOString().split('T')[0], // Default to YYYY-MM-DD (Today)
+    foundAt: new Date().toISOString().slice(0, 16), // Default to YYYY-MM-DDTHH:MM (Now)
   });
 
   if (!isOpen) return null;
@@ -31,8 +33,8 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onA
       linkedinUrl: formData.linkedinUrl,
       postContent: formData.postContent || "Manual Entry",
       postUrl: '',
-      postDate: new Date().toISOString(),
-      foundAt: new Date().toISOString(),
+      postDate: new Date(formData.postDate).toISOString(),
+      foundAt: new Date(formData.foundAt).toISOString(),
       aiScore: 100,
       aiReasoning: 'Manually added by user.',
       isRelevant: true,
@@ -42,20 +44,29 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onA
     onAdd(newLead);
     onClose();
     // Reset form
-    setFormData({ name: '', title: '', company: '', location: '', linkedinUrl: '', postContent: '' });
+    setFormData({ 
+      name: '', 
+      title: '', 
+      company: '', 
+      location: '', 
+      linkedinUrl: '', 
+      postContent: '',
+      postDate: new Date().toISOString().split('T')[0],
+      foundAt: new Date().toISOString().slice(0, 16)
+    });
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-200 dark:border-gray-700">
-        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-200 dark:border-gray-700 max-h-[90vh] flex flex-col">
+        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add New Lead</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
             <X className="w-5 h-5" />
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
@@ -123,6 +134,35 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onA
               />
             </div>
           </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Post Date</label>
+              <div className="relative">
+                <Calendar className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+                <input 
+                  type="date"
+                  required
+                  value={formData.postDate}
+                  onChange={e => setFormData({...formData, postDate: e.target.value})}
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Found At (Timestamp)</label>
+              <div className="relative">
+                <Clock className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+                <input 
+                  type="datetime-local"
+                  required
+                  value={formData.foundAt}
+                  onChange={e => setFormData({...formData, foundAt: e.target.value})}
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+            </div>
+          </div>
 
           <div>
              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Post Context / Notes</label>
@@ -134,7 +174,7 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onA
              />
           </div>
 
-          <div className="pt-4 flex justify-end space-x-3">
+          <div className="pt-4 flex justify-end space-x-3 flex-shrink-0">
             <button 
               type="button" 
               onClick={onClose}

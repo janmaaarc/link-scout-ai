@@ -23,6 +23,7 @@ export interface AiAnalysisResult {
 export const analyzePostWithGemini = async (postContent: string, keywords: string[], negativeKeywords: string[]): Promise<AiAnalysisResult> => {
   const ai = createAI();
   
+  // 1. Missing API Key: Use Mock Data (Demo Mode)
   if (!ai) {
     console.warn("No API Key provided. Returning mock analysis.");
     return mockAnalysis(postContent, keywords);
@@ -64,12 +65,32 @@ export const analyzePostWithGemini = async (postContent: string, keywords: strin
     });
 
     const text = response.text;
-    if (!text) throw new Error("No response from AI");
+    if (!text) throw new Error("Empty response from Gemini API");
     return JSON.parse(text) as AiAnalysisResult;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Analysis Failed", error);
-    return mockAnalysis(postContent, keywords);
+
+    // 2. API Errors: Return specific error reasoning instead of Mock Data
+    let errorMessage = "AI Analysis failed due to an unknown error.";
+    
+    const errString = error.toString().toLowerCase();
+
+    if (errString.includes('403') || errString.includes('key') || errString.includes('permission')) {
+      errorMessage = "Error: Invalid API Key. Please update it in Workflow Config.";
+    } else if (errString.includes('429') || errString.includes('quota') || errString.includes('resource exhausted')) {
+      errorMessage = "Error: API Rate Limit Exceeded. Please try again later.";
+    } else if (errString.includes('fetch') || errString.includes('network')) {
+      errorMessage = "Error: Network connection failed. Please check your internet.";
+    } else if (errString.includes('503') || errString.includes('overloaded')) {
+      errorMessage = "Error: Gemini model is overloaded. Please retry.";
+    }
+
+    return {
+      score: 0,
+      isRelevant: false,
+      reasoning: errorMessage
+    };
   }
 };
 
@@ -77,7 +98,7 @@ export const generateDraftEmail = async (leadName: string, company: string, post
   const ai = createAI();
   
   if (!ai) {
-    return `Subject: Regarding your post about automation\n\nHi ${leadName.split(' ')[0]},\n\nI saw your post on LinkedIn about automation challenges at ${company}. We help companies streamline exactly that.\n\nBest,\n${myName}`;
+    return `Subject: Regarding your post about automation\n\nHi ${leadName.split(' ')[0]},\n\nI saw your post on LinkedIn about automation challenges at ${company}. We help companies streamline exactly that.\n\nBest,\n${myName}\n\n(Note: This is a template. Add a Gemini API Key to generate real AI drafts.)`;
   }
 
   try {
@@ -101,21 +122,32 @@ export const generateDraftEmail = async (leadName: string, company: string, post
       contents: prompt,
     });
 
-    return response.text || "Error generating draft.";
-  } catch (error) {
+    if (!response.text) throw new Error("Empty response from Gemini API");
+    return response.text;
+
+  } catch (error: any) {
     console.error("Gemini Email Gen Failed", error);
-    return "Error generating email draft. Please check API key.";
+    
+    const errString = error.toString().toLowerCase();
+    if (errString.includes('403') || errString.includes('key')) {
+      return "Error: Invalid API Key. Please check your Workflow Config.";
+    }
+    if (errString.includes('429')) {
+      return "Error: Rate Limit Exceeded. Please wait a moment.";
+    }
+    
+    return "Error: Failed to generate draft. Please check your network connection and API key.";
   }
 }
 
 const mockAnalysis = (content: string, keywords: string[]): AiAnalysisResult => {
-  // Simple heuristic fallback if API fails or is missing
+  // Simple heuristic fallback ONLY if API Key is missing entirely
   const hasKeyword = keywords.some(k => content.toLowerCase().includes(k.toLowerCase()));
   return {
     isRelevant: hasKeyword,
     score: hasKeyword ? 85 : 20,
     reasoning: hasKeyword 
-      ? "Post contains target keywords and appears to be a direct request." 
-      : "Post does not contain relevant keywords.",
+      ? "Demo Mode: Post contains target keywords. (Add API Key for real analysis)" 
+      : "Demo Mode: Post does not contain relevant keywords. (Add API Key for real analysis)",
   };
 };
