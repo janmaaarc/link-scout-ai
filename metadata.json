@@ -1,0 +1,5 @@
+{
+  "name": "LinkScout AI",
+  "description": "Autonomous LinkedIn lead generation engine powered by Gemini AI. Features safe-mode scraping, automated enrichment, and bi-directional Google Sheets sync.",
+  "requestFramePermissions": []
+}
