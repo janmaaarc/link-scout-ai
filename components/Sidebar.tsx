@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutDashboard, Settings, Users, PlayCircle, Clock, ScanSearch, X, Activity, LogOut } from 'lucide-react';
+import { LayoutDashboard, Settings, Users, PlayCircle, Clock, ScanSearch, X, Activity, LogOut, Sun, Moon } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -9,9 +9,23 @@ interface SidebarProps {
   onClose: () => void;
   onLogout: () => void;
   lastScanTime: number; // New prop to trigger reset
+  darkMode: boolean;
+  toggleTheme: () => void;
+  onAutoScan?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, scanFrequency, isOpen, onClose, onLogout, lastScanTime }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  scanFrequency, 
+  isOpen, 
+  onClose, 
+  onLogout, 
+  lastScanTime,
+  darkMode,
+  toggleTheme,
+  onAutoScan
+}) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'leads', label: 'Leads Sheet', icon: Users },
@@ -31,12 +45,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, scanF
   useEffect(() => {
     const timer = setInterval(() => {
       setSecondsLeft((prev) => {
-        if (prev <= 1) return scanFrequency * 60; // Reset loop
+        if (prev <= 1) {
+          return scanFrequency * 60; // Reset loop locally
+        }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
   }, [scanFrequency]);
+
+  // Notify parent of auto-scan when timer hits reset point (approx)
+  useEffect(() => {
+    if (secondsLeft === scanFrequency * 60 && onAutoScan) {
+      // Only trigger if we are "looping" not just initializing. 
+      // However, initialization also sets it to max. 
+      // To avoid infinite loop on mount, we can check if it was 1 before.
+      // Simplification: We rely on the interval check in the previous effect, 
+      // but since we can't call side effects in setState updater, we watch secondsLeft.
+      // Actually, let's catch it right before reset.
+    }
+    if (secondsLeft === 1 && onAutoScan) {
+        onAutoScan();
+    }
+  }, [secondsLeft, onAutoScan]);
 
   // Format time MM:SS or HH:MM:SS
   const formatTime = (seconds: number) => {
@@ -128,13 +159,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, scanF
             </div>
           </div>
 
-          <button 
-            onClick={onLogout}
-            className="w-full flex items-center justify-center space-x-2 px-4 py-2 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm font-medium"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Sign Out</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button 
+              onClick={onLogout}
+              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm font-medium"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sign Out</span>
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="flex items-center justify-center w-10 h-10 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Toggle Dark Mode"
+            >
+              {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </div>
     </>

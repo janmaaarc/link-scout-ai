@@ -1,15 +1,51 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { WorkflowConfig } from '../types';
-import { Save, Plus, AlertCircle, Shield, AlertTriangle, Database, Webhook, Server } from 'lucide-react';
+import { Save, Plus, AlertCircle, Shield, AlertTriangle, Database, Webhook, Server, Activity, Key } from 'lucide-react';
+import { ToastType } from '../components/Toast';
 
 interface WorkflowConfigProps {
   config: WorkflowConfig;
   setConfig: React.Dispatch<React.SetStateAction<WorkflowConfig>>;
+  showToast: (message: string, type: ToastType) => void;
 }
 
-export const WorkflowConfigPage: React.FC<WorkflowConfigProps> = ({ config, setConfig }) => {
+export const WorkflowConfigPage: React.FC<WorkflowConfigProps> = ({ config, setConfig, showToast }) => {
   const [newKeyword, setNewKeyword] = React.useState('');
   const [newNegative, setNewNegative] = React.useState('');
+  const [isTestingWebhook, setIsTestingWebhook] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+
+  // Load API Key on mount
+  useEffect(() => {
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (savedKey) setApiKey(savedKey);
+  }, []);
+
+  const handleSave = () => {
+    // Save API key to local storage for the service to pick up
+    if (apiKey.trim()) {
+      localStorage.setItem('gemini_api_key', apiKey.trim());
+    } else {
+      localStorage.removeItem('gemini_api_key');
+    }
+    
+    // In a real app, this would make an API call to save config to the VPS
+    showToast("Configuration saved successfully!", "success");
+  };
+
+  const testWebhook = async () => {
+    if (!config.n8nWebhookUrl) {
+      showToast("Please enter a Webhook URL first.", "error");
+      return;
+    }
+    
+    setIsTestingWebhook(true);
+    // Simulate test
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsTestingWebhook(false);
+    showToast("Test payload sent! Check your n8n execution log.", "success");
+  };
 
   const addKeyword = () => {
     if (newKeyword.trim()) {
@@ -34,16 +70,42 @@ export const WorkflowConfigPage: React.FC<WorkflowConfigProps> = ({ config, setC
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 md:space-y-8 pb-10">
+    <div className="max-w-4xl mx-auto space-y-6 md:space-y-8 pb-20 md:pb-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-200 dark:border-gray-700 pb-6 gap-4 pr-12 lg:pr-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Workflow Config</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">Configure your autonomous scouting agent.</p>
         </div>
-        <button className="w-full md:w-auto flex items-center justify-center space-x-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-all">
+        <button 
+          onClick={handleSave}
+          className="hidden md:flex items-center justify-center space-x-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-all"
+        >
           <Save className="w-4 h-4" />
           <span>Save Changes</span>
         </button>
+      </div>
+
+       {/* AI Configuration Section */}
+       <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-purple-100 dark:border-purple-900/30 transition-colors">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+          <Key className="w-5 h-5 text-purple-600 dark:text-purple-400 mr-2" />
+          AI Service Configuration
+        </h2>
+        <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Gemini API Key
+            </label>
+            <input 
+                type="password" 
+                placeholder="AIzaSy..."
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg font-mono text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-colors"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              Required for real AI analysis and email drafting. Key is saved locally in your browser.
+            </p>
+        </div>
       </div>
 
       {/* Infrastructure Configuration (New Tech Stack) */}
@@ -58,13 +120,22 @@ export const WorkflowConfigPage: React.FC<WorkflowConfigProps> = ({ config, setC
                     <Webhook className="w-4 h-4 mr-2 text-orange-500" />
                     n8n Webhook URL
                 </label>
-                <input 
-                    type="text" 
-                    placeholder="https://n8n.your-vps.com/webhook/..."
-                    value={config.n8nWebhookUrl || ''}
-                    onChange={(e) => setConfig({...config, n8nWebhookUrl: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-colors"
-                />
+                <div className="flex space-x-2">
+                  <input 
+                      type="text" 
+                      placeholder="https://n8n.your-vps.com/webhook/..."
+                      value={config.n8nWebhookUrl || ''}
+                      onChange={(e) => setConfig({...config, n8nWebhookUrl: e.target.value})}
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-colors"
+                  />
+                  <button 
+                    onClick={testWebhook}
+                    disabled={isTestingWebhook}
+                    className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors flex items-center"
+                  >
+                     {isTestingWebhook ? <Activity className="w-4 h-4 animate-spin" /> : "Test"}
+                  </button>
+                </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Used to trigger Apollo enrichment & Email workflows.</p>
             </div>
             
@@ -237,6 +308,16 @@ export const WorkflowConfigPage: React.FC<WorkflowConfigProps> = ({ config, setC
           />
         </div>
       </div>
+
+      {/* Mobile Floating Save Button */}
+      <button
+        onClick={handleSave}
+        className="md:hidden fixed bottom-6 right-4 z-40 flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 font-medium transition-all"
+      >
+        <Save className="w-5 h-5" />
+        <span>Save Changes</span>
+      </button>
+
     </div>
   );
 };

@@ -5,6 +5,7 @@ import { LeadsManager } from './pages/LeadsManager';
 import { WorkflowConfigPage } from './pages/WorkflowConfig';
 import { SystemLogs } from './pages/SystemLogs';
 import { Login } from './pages/Login';
+import { Toast, ToastType } from './components/Toast';
 import { Lead, WorkflowConfig, Stats, LeadStatus, EnrichmentStatus } from './types';
 import { Menu, ScanSearch, Moon, Sun } from 'lucide-react';
 
@@ -51,13 +52,32 @@ const INITIAL_CONFIG: WorkflowConfig = {
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
+  
+  // Initialize leads from LocalStorage or fallback to initial mock
+  const [leads, setLeads] = useState<Lead[]>(() => {
+    const saved = localStorage.getItem('linkscout_leads');
+    return saved ? JSON.parse(saved) : INITIAL_LEADS;
+  });
+
   const [config, setConfig] = useState<WorkflowConfig>(INITIAL_CONFIG);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   
+  // Toast State
+  const [toast, setToast] = useState<{ message: string; type: ToastType; isVisible: boolean }>({
+    message: '',
+    type: 'info',
+    isVisible: false
+  });
+  
   // State to track when the last scan happened, used to reset the timer
-  const [lastScanTime, setLastScanTime] = useState(Date.now());
+  // Initialize to 0 so we know if no scan has happened yet in this session
+  const [lastScanTime, setLastScanTime] = useState(0);
+
+  // Persistence Effect: Save leads whenever they change
+  useEffect(() => {
+    localStorage.setItem('linkscout_leads', JSON.stringify(leads));
+  }, [leads]);
 
   // Initialize Theme
   useEffect(() => {
@@ -85,6 +105,14 @@ export default function App() {
     }
   };
 
+  const showToast = (message: string, type: ToastType) => {
+    setToast({ message, type, isVisible: true });
+  };
+
+  const closeToast = () => {
+    setToast(prev => ({ ...prev, isVisible: false }));
+  };
+
   // Check for existing session on mount
   useEffect(() => {
     const session = localStorage.getItem('linkscout_auth');
@@ -103,12 +131,12 @@ export default function App() {
     setIsAuthenticated(false);
   };
 
-  // Derived stats
+  // Real-time Stats Calculation based on actual data
   const stats: Stats = {
-    totalScanned: leads.length + 142, // + historical mock
-    qualified: leads.filter(l => l.status !== LeadStatus.DISQUALIFIED).length + 40,
-    enriched: leads.filter(l => l.enrichmentStatus === EnrichmentStatus.ENRICHED).length + 20,
-    messagesSent: leads.filter(l => l.status === LeadStatus.CONTACTED).length + 12
+    totalScanned: leads.length,
+    qualified: leads.filter(l => l.status === LeadStatus.QUALIFIED || l.status === LeadStatus.CONTACTED || l.status === LeadStatus.REPLIED).length,
+    enriched: leads.filter(l => l.enrichmentStatus === EnrichmentStatus.ENRICHED).length,
+    messagesSent: leads.filter(l => l.status === LeadStatus.CONTACTED || l.status === LeadStatus.REPLIED).length
   };
 
   const renderContent = () => {
@@ -121,11 +149,17 @@ export default function App() {
           setLeads={setLeads} 
           config={config} 
           onScanTrigger={() => setLastScanTime(Date.now())}
+          lastScanTime={lastScanTime}
+          showToast={showToast}
         />;
       case 'logs':
         return <SystemLogs />;
       case 'config':
-        return <WorkflowConfigPage config={config} setConfig={setConfig} />;
+        return <WorkflowConfigPage 
+          config={config} 
+          setConfig={setConfig} 
+          showToast={showToast}
+        />;
       default:
         return <Dashboard stats={stats} darkMode={darkMode} />;
     }
@@ -134,13 +168,6 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <>
-        {/* Absolute toggle for Login Page */}
-        <button 
-          onClick={toggleTheme}
-          className="fixed top-4 right-4 p-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors z-50"
-        >
-          {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
         <Login onLogin={handleLogin} />
       </>
     );
@@ -148,6 +175,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex bg-gray-50 dark:bg-gray-900 flex-col lg:flex-row transition-colors duration-200">
+      {/* Toast Notification */}
+      <Toast 
+        message={toast.message} 
+        type={toast.type} 
+        isVisible={toast.isVisible} 
+        onClose={closeToast} 
+      />
+
       {/* Mobile Header */}
       <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between sticky top-0 z-30 transition-colors duration-200">
         <div className="flex items-center">
@@ -163,13 +198,7 @@ export default function App() {
           </div>
         </div>
         
-        {/* Mobile Theme Toggle */}
-        <button 
-          onClick={toggleTheme}
-          className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-        >
-          {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
+        {/* Removed theme toggle button here */}
       </div>
 
       <Sidebar 
@@ -180,20 +209,12 @@ export default function App() {
         onClose={() => setIsSidebarOpen(false)}
         onLogout={handleLogout}
         lastScanTime={lastScanTime}
+        darkMode={darkMode}
+        toggleTheme={toggleTheme}
+        onAutoScan={() => setLastScanTime(Date.now())}
       />
 
-      <main className="flex-1 lg:ml-64 p-4 md:p-8 overflow-y-auto w-full relative">
-        {/* Desktop Theme Toggle - Positioned Upper Right */}
-        <div className="hidden lg:block absolute top-6 right-8 z-20">
-          <button 
-            onClick={toggleTheme}
-            className="flex items-center justify-center w-10 h-10 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm transition-all"
-            title="Toggle Theme"
-          >
-            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
-        </div>
-
+      <main className="flex-1 lg:ml-64 p-3 md:p-5 xl:p-8 overflow-y-auto w-full relative">
         {renderContent()}
       </main>
     </div>

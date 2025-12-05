@@ -1,14 +1,18 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
-// NOTE: In a production app, never expose API keys on the client side.
-// This is a demo/prototype "Control Panel" running locally or on a secure VPS dashboard.
-const apiKey = process.env.API_KEY || ''; 
-
-let ai: GoogleGenAI | null = null;
-
-if (apiKey) {
-  ai = new GoogleGenAI({ apiKey });
+// Helper to get API key (Environment Variable OR LocalStorage for User Override)
+const getApiKey = () => {
+  const localKey = localStorage.getItem('gemini_api_key');
+  if (localKey) return localKey;
+  return process.env.API_KEY || '';
 }
+
+const createAI = () => {
+  const key = getApiKey();
+  if (!key) return null;
+  return new GoogleGenAI({ apiKey: key });
+};
 
 export interface AiAnalysisResult {
   score: number;
@@ -17,6 +21,8 @@ export interface AiAnalysisResult {
 }
 
 export const analyzePostWithGemini = async (postContent: string, keywords: string[], negativeKeywords: string[]): Promise<AiAnalysisResult> => {
+  const ai = createAI();
+  
   if (!ai) {
     console.warn("No API Key provided. Returning mock analysis.");
     return mockAnalysis(postContent, keywords);
@@ -66,6 +72,41 @@ export const analyzePostWithGemini = async (postContent: string, keywords: strin
     return mockAnalysis(postContent, keywords);
   }
 };
+
+export const generateDraftEmail = async (leadName: string, company: string, postContent: string, myName: string = "LinkScout User"): Promise<string> => {
+  const ai = createAI();
+  
+  if (!ai) {
+    return `Subject: Regarding your post about automation\n\nHi ${leadName.split(' ')[0]},\n\nI saw your post on LinkedIn about automation challenges at ${company}. We help companies streamline exactly that.\n\nBest,\n${myName}`;
+  }
+
+  try {
+    const prompt = `
+      Write a short, cold outreach email to a prospect found on LinkedIn.
+      
+      Prospect Name: ${leadName}
+      Company: ${company}
+      Context (Their LinkedIn Post): "${postContent}"
+      My Name: ${myName}
+      
+      Guidelines:
+      1. Keep it under 100 words.
+      2. Reference their specific problem from the post (Personalization).
+      3. Casual but professional tone.
+      4. Include a Subject Line.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+
+    return response.text || "Error generating draft.";
+  } catch (error) {
+    console.error("Gemini Email Gen Failed", error);
+    return "Error generating email draft. Please check API key.";
+  }
+}
 
 const mockAnalysis = (content: string, keywords: string[]): AiAnalysisResult => {
   // Simple heuristic fallback if API fails or is missing
