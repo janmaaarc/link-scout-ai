@@ -78,18 +78,18 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0 pr-12 lg:pr-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Leads Database</h1>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Leads Database</h1>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-1">
             <div className="flex items-center space-x-1">
                 <Database className="w-3 h-3" />
                 <span>PostgreSQL</span>
             </div>
             <ArrowRight className="w-3 h-3" />
             <div className="flex items-center space-x-1">
-                <FileSpreadsheet className="w-3 h-3 text-green-600" />
-                <span className="text-green-700">Google Sheets</span>
+                <FileSpreadsheet className="w-3 h-3 text-green-600 dark:text-green-500" />
+                <span className="text-green-700 dark:text-green-400">Google Sheets</span>
             </div>
           </div>
         </div>
@@ -99,8 +99,8 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
             disabled={isSyncing || pendingSyncCount === 0}
             className={`flex items-center justify-center space-x-2 px-4 py-2 border rounded-lg font-medium transition-colors ${
               pendingSyncCount > 0 
-              ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' 
-              : 'bg-white border-gray-300 text-gray-400'
+              ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50' 
+              : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500'
             }`}
           >
             {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
@@ -110,7 +110,7 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
           </button>
           <button 
             onClick={exportToCSV}
-            className="flex items-center justify-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+            className="flex items-center justify-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium"
           >
             <FileSpreadsheet className="w-4 h-4" />
             <span>Export CSV</span>
@@ -126,10 +126,10 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left whitespace-nowrap md:whitespace-normal">
-            <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+            <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-600 dark:text-gray-300 font-medium border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Lead Info</th>
@@ -139,43 +139,43 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
                 <th className="px-6 py-4">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {leads.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                     No leads found yet. Click "Manual Scan" to simulate.
                   </td>
                 </tr>
               ) : (
                 leads.map((lead) => (
-                  <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={lead.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
-                        ${lead.status === LeadStatus.QUALIFIED ? 'bg-green-100 text-green-800 border-green-200' :
-                          lead.status === LeadStatus.DISQUALIFIED ? 'bg-red-100 text-red-800 border-red-200' :
-                          'bg-gray-100 text-gray-800 border-gray-200'
+                        ${lead.status === LeadStatus.QUALIFIED ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800' :
+                          lead.status === LeadStatus.DISQUALIFIED ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800' :
+                          'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-600'
                         }`}>
                         {lead.status}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{lead.name}</div>
-                      <div className="text-gray-500 text-xs">{lead.title}</div>
-                      <div className="text-blue-600 text-xs font-medium">{lead.company}</div>
-                      <div className="text-gray-400 text-xs mt-1">{lead.location}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{lead.name}</div>
+                      <div className="text-gray-500 dark:text-gray-400 text-xs">{lead.title}</div>
+                      <div className="text-blue-600 dark:text-blue-400 text-xs font-medium">{lead.company}</div>
+                      <div className="text-gray-400 dark:text-gray-500 text-xs mt-1">{lead.location}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="max-w-xs text-xs text-gray-600 truncate mb-1" title={lead.postContent}>
+                      <div className="max-w-xs text-xs text-gray-600 dark:text-gray-300 truncate mb-1" title={lead.postContent}>
                         "{lead.postContent}"
                       </div>
-                      <a href={lead.postUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs flex items-center">
+                      <a href={lead.postUrl} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline text-xs flex items-center">
                         View Post <ExternalLink className="w-3 h-3 ml-1" />
                       </a>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2 mb-1">
                         <div className={`text-sm font-bold ${
-                          lead.aiScore > 75 ? 'text-green-600' : lead.aiScore > 40 ? 'text-yellow-600' : 'text-red-600'
+                          lead.aiScore > 75 ? 'text-green-600 dark:text-green-400' : lead.aiScore > 40 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'
                         }`}>
                           {lead.aiScore}/100
                         </div>
@@ -183,30 +183,30 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
                           lead.isRelevant ? <CheckCircle className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-red-500" />
                         )}
                       </div>
-                      <div className="text-xs text-gray-500 italic max-w-xs line-clamp-2 md:whitespace-normal">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 italic max-w-xs line-clamp-2 md:whitespace-normal">
                         {lead.aiReasoning}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       {lead.enrichmentStatus === EnrichmentStatus.ENRICHED ? (
                         <div className="space-y-1">
-                          <div className="flex items-center text-xs text-gray-700">
+                          <div className="flex items-center text-xs text-gray-700 dark:text-gray-300">
                             <Mail className="w-3 h-3 mr-1.5 text-gray-400" />
                             {lead.email}
                           </div>
-                          <div className="flex items-center text-xs text-gray-700">
+                          <div className="flex items-center text-xs text-gray-700 dark:text-gray-300">
                             <Phone className="w-3 h-3 mr-1.5 text-gray-400" />
                             {lead.phone}
                           </div>
                         </div>
                       ) : lead.enrichmentStatus === EnrichmentStatus.PENDING ? (
-                         <span className="text-xs text-gray-400">Waiting...</span>
+                         <span className="text-xs text-gray-400 dark:text-gray-500">Waiting...</span>
                       ) : (
                          <span className="text-xs text-red-400">Failed</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <button className="text-gray-400 hover:text-gray-600">
+                      <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                         <MoreHorizontal className="w-5 h-5" />
                       </button>
                     </td>

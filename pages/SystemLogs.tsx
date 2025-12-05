@@ -18,40 +18,40 @@ export const SystemLogs: React.FC = () => {
 
   const getBadgeColor = (severity: LogSeverity) => {
     switch (severity) {
-      case LogSeverity.INFO: return 'bg-blue-100 text-blue-700';
-      case LogSeverity.WARNING: return 'bg-yellow-100 text-yellow-700';
-      case LogSeverity.ERROR: return 'bg-orange-100 text-orange-700';
-      case LogSeverity.CRITICAL: return 'bg-red-100 text-red-700';
+      case LogSeverity.INFO: return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+      case LogSeverity.WARNING: return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
+      case LogSeverity.ERROR: return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
+      case LogSeverity.CRITICAL: return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pr-12 lg:pr-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">System Logs</h1>
-          <p className="text-sm text-gray-500">Monitor VPS backend activities and errors.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">System Logs</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Monitor VPS backend activities and errors.</p>
         </div>
-        <button className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">
+        <button className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors">
           <RefreshCw className="w-4 h-4" />
           <span>Refresh</span>
         </button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4 bg-white p-4 rounded-xl border border-gray-200">
+      <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4 bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 transition-colors">
         <div className="relative w-full sm:flex-1">
             <Search className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
             <input 
                 type="text" 
                 placeholder="Search logs..." 
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
             />
         </div>
         <select 
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="w-full sm:w-auto px-4 py-2 border border-gray-200 rounded-lg focus:outline-none bg-gray-50 text-sm"
+            className="w-full sm:w-auto px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 text-sm transition-colors"
         >
             <option value="ALL">All Levels</option>
             <option value="ERROR">Errors Only</option>
@@ -59,10 +59,10 @@ export const SystemLogs: React.FC = () => {
         </select>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left whitespace-nowrap md:whitespace-normal">
-            <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+            <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-600 dark:text-gray-300 font-medium border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="px-6 py-4 w-32">Timestamp</th>
                 <th className="px-6 py-4 w-24">Level</th>
@@ -70,10 +70,10 @@ export const SystemLogs: React.FC = () => {
                 <th className="px-6 py-4">Message</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {logs.map((log) => (
-                <tr key={log.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 text-gray-500 font-mono text-xs">
+                <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <td className="px-6 py-4 text-gray-500 dark:text-gray-400 font-mono text-xs">
                     {new Date(log.timestamp).toLocaleTimeString()}
                   </td>
                   <td className="px-6 py-4">
@@ -82,13 +82,13 @@ export const SystemLogs: React.FC = () => {
                       <span>{log.severity}</span>
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-medium text-gray-700">
+                  <td className="px-6 py-4 font-medium text-gray-700 dark:text-gray-300">
                     {log.service}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-gray-900 whitespace-normal">{log.message}</div>
+                    <div className="text-gray-900 dark:text-gray-100 whitespace-normal">{log.message}</div>
                     {log.details && (
-                      <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-50 p-1.5 rounded inline-block whitespace-normal">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono bg-gray-50 dark:bg-gray-900/50 p-1.5 rounded inline-block whitespace-normal">
                           {log.details}
                       </div>
                     )}

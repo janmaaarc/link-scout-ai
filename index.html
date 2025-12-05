@@ -6,8 +6,24 @@
     <title>LinkScout AI - Autonomous Lead Gen</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              gray: {
+                750: '#2d3748',
+                850: '#1a202c',
+                950: '#171923',
+              }
+            }
+          }
+        }
+      }
+    </script>
     <style>
-      body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+      body { font-family: 'Inter', sans-serif; }
     </style>
   <script type="importmap">
 {
@@ -22,7 +38,7 @@
 }
 </script>
 </head>
-  <body>
+  <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
     <div id="root"></div>
   </body>
 </html>
