@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Lead, LeadStatus, EnrichmentStatus, WorkflowConfig } from '../types';
-import { ExternalLink, Mail, Phone, FileSpreadsheet, CheckCircle, XCircle, Loader2, Database, ArrowRight, Trash2, Search, Filter, Plus, Download, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ExternalLink, Mail, Phone, FileSpreadsheet, CheckCircle, XCircle, Loader2, Database, ArrowRight, Trash2, Search, Filter, Plus, Download, AlertTriangle, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { generateMockLead, simulateEnrichment } from '../services/mockDataService';
 import { analyzePostWithGemini } from '../services/geminiService';
 import { ToastType } from '../components/Toast';
@@ -79,6 +79,7 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
   const runManualScan = async () => {
     setIsScanning(true);
     showToast("Scanning started (Scout Mode Active)...", "info");
+    const scanTimestamp = new Date().toISOString(); // Capture exact timestamp
     onScanTrigger(); // Reset the system timer immediately
     
     // 1. Simulate finding multiple new posts (1-3 leads)
@@ -87,7 +88,10 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
     
     const newLeadsBatch: Lead[] = [];
     for (let i = 0; i < batchSize; i++) {
-        newLeadsBatch.push(generateMockLead());
+        // Explicitly override foundAt with the scan timestamp
+        const mock = generateMockLead();
+        mock.foundAt = scanTimestamp;
+        newLeadsBatch.push(mock);
     }
     
     // 2. Add to list as processing
@@ -148,11 +152,11 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
   };
 
   const exportToCSV = () => {
-    const headers = ["Name", "Company", "Title", "Email", "Phone", "AI Score", "Status", "LinkedIn URL"];
+    const headers = ["Name", "Company", "Title", "Email", "Phone", "AI Score", "Status", "LinkedIn URL", "Found At"];
     const csvContent = [
       headers.join(","),
       ...filteredLeads.map(l => [
-        l.name, l.company, l.title, l.email || "", l.phone || "", l.aiScore, l.status, l.linkedinUrl
+        l.name, l.company, l.title, l.email || "", l.phone || "", l.aiScore, l.status, l.linkedinUrl, l.foundAt
       ].join(","))
     ].join("\n");
     
@@ -214,11 +218,11 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
           </div>
           
           {/* Action Buttons: 3-column grid on mobile (Top row: Sync, CSV, Add), Manual Scan full width below */}
-          <div className="grid grid-cols-3 gap-2 w-full sm:flex sm:flex-wrap sm:w-auto">
+          <div className="grid grid-cols-3 gap-4 w-full sm:flex sm:flex-wrap sm:w-auto">
              <button 
               onClick={handleBatchSync}
               disabled={isSyncing || pendingSyncCount === 0}
-              className={`col-span-1 sm:flex-none flex items-center justify-center space-x-2 px-3 py-2 border rounded-lg font-medium transition-colors text-sm ${
+              className={`col-span-1 w-full sm:w-auto sm:flex-none flex items-center justify-center space-x-2 px-3 py-2 border rounded-lg font-medium transition-colors text-sm ${
                 pendingSyncCount > 0 
                 ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50' 
                 : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500'
@@ -231,20 +235,20 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
             </button>
             <button
               onClick={exportToCSV}
-               className="col-span-1 sm:flex-none flex items-center justify-center space-x-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-sm"
+               className="col-span-1 w-full sm:w-auto sm:flex-none flex items-center justify-center space-x-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-sm"
             >
               <Download className="w-4 h-4" />
               <span className="whitespace-nowrap">CSV</span>
             </button>
             <button 
               onClick={() => setIsAddModalOpen(true)}
-              className="col-span-1 sm:flex-none flex items-center justify-center space-x-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-sm"
+              className="col-span-1 w-full sm:w-auto sm:flex-none flex items-center justify-center space-x-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-sm"
             >
               <Plus className="w-4 h-4" />
               <span className="whitespace-nowrap">Add Lead</span>
             </button>
             
-            <div className="relative group col-span-3 sm:flex-none">
+            <div className="relative group col-span-3 sm:flex-none w-full sm:w-auto">
               <button 
                 onClick={runManualScan}
                 disabled={isScanning}
@@ -277,7 +281,7 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
                 )}
               </button>
               
-              {/* Desktop/Tablet Warning Tooltip */}
+              {/* Tablet/Desktop Warning Tooltip */}
               {isRecentScan && (
                 <div className={`absolute z-20 w-auto text-center
                   hidden sm:block
@@ -355,13 +359,19 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
                       className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
                     >
                       <td className="px-6 py-5 whitespace-nowrap align-top">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
-                          ${lead.status === LeadStatus.QUALIFIED ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800' :
-                            lead.status === LeadStatus.DISQUALIFIED ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800' :
-                            'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-600'
-                          }`}>
-                          {lead.status}
-                        </span>
+                        <div className="flex flex-col gap-1.5">
+                          <span className={`inline-flex self-start items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
+                            ${lead.status === LeadStatus.QUALIFIED ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800' :
+                              lead.status === LeadStatus.DISQUALIFIED ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800' :
+                              'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-600'
+                            }`}>
+                            {lead.status}
+                          </span>
+                          <div className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500" title={`Scanned at: ${new Date(lead.foundAt).toLocaleString()}`}>
+                             <Clock className="w-3 h-3" />
+                             <span>{new Date(lead.foundAt).toLocaleString()}</span>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-6 py-5 align-top">
                         <div className="font-semibold text-base text-gray-900 dark:text-white truncate mb-0.5">{lead.name}</div>
