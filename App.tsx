@@ -55,6 +55,9 @@ export default function App() {
   const [config, setConfig] = useState<WorkflowConfig>(INITIAL_CONFIG);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  
+  // State to track when the last scan happened, used to reset the timer
+  const [lastScanTime, setLastScanTime] = useState(Date.now());
 
   // Initialize Theme
   useEffect(() => {
@@ -113,7 +116,12 @@ export default function App() {
       case 'dashboard':
         return <Dashboard stats={stats} darkMode={darkMode} />;
       case 'leads':
-        return <LeadsManager leads={leads} setLeads={setLeads} config={config} />;
+        return <LeadsManager 
+          leads={leads} 
+          setLeads={setLeads} 
+          config={config} 
+          onScanTrigger={() => setLastScanTime(Date.now())}
+        />;
       case 'logs':
         return <SystemLogs />;
       case 'config':
@@ -171,6 +179,7 @@ export default function App() {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         onLogout={handleLogout}
+        lastScanTime={lastScanTime}
       />
 
       <main className="flex-1 lg:ml-64 p-4 md:p-8 overflow-y-auto w-full relative">

@@ -127,8 +127,12 @@ export const WorkflowConfigPage: React.FC<WorkflowConfigProps> = ({ config, setC
              <div className="flex items-center space-x-4">
                <input 
                   type="number" 
-                  value={config.scanFrequencyMinutes}
-                  onChange={(e) => setConfig({...config, scanFrequencyMinutes: parseInt(e.target.value)})}
+                  value={config.scanFrequencyMinutes || ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    // FIX: Handle NaN to prevent sidebar crash
+                    setConfig({...config, scanFrequencyMinutes: isNaN(val) ? 0 : val});
+                  }}
                   className={`w-32 px-4 py-2 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${config.scanFrequencyMinutes < 60 ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-300 dark:border-gray-600'}`}
                 />
                 {config.scanFrequencyMinutes < 60 && (

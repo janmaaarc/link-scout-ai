@@ -8,9 +8,10 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onLogout: () => void;
+  lastScanTime: number; // New prop to trigger reset
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, scanFrequency, isOpen, onClose, onLogout }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, scanFrequency, isOpen, onClose, onLogout, lastScanTime }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'leads', label: 'Leads Sheet', icon: Users },
@@ -21,10 +22,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, scanF
   // Timer Logic
   const [secondsLeft, setSecondsLeft] = useState(scanFrequency * 60);
 
-  // Reset timer when config changes
+  // Reset timer when config changes OR when a manual scan is triggered
   useEffect(() => {
     setSecondsLeft(scanFrequency * 60);
-  }, [scanFrequency]);
+  }, [scanFrequency, lastScanTime]);
 
   // Countdown effect
   useEffect(() => {

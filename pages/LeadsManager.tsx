@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Lead, LeadStatus, EnrichmentStatus, WorkflowConfig } from '../types';
-import { ExternalLink, Mail, Phone, MoreHorizontal, FileSpreadsheet, CheckCircle, XCircle, Loader2, Database, ArrowRight } from 'lucide-react';
+import { ExternalLink, Mail, Phone, MoreHorizontal, FileSpreadsheet, CheckCircle, XCircle, Loader2, Database, ArrowRight, Trash2 } from 'lucide-react';
 import { generateMockLead, simulateEnrichment } from '../services/mockDataService';
 import { analyzePostWithGemini } from '../services/geminiService';
 
@@ -8,21 +8,35 @@ interface LeadsManagerProps {
   leads: Lead[];
   setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
   config: WorkflowConfig;
+  onScanTrigger: () => void;
 }
 
-export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, config }) => {
+export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, config, onScanTrigger }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(3); // Mock pending count
+  
+  // FIX: Track component mount status to prevent memory leaks/errors on unmount
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const runManualScan = async () => {
     setIsScanning(true);
+    onScanTrigger(); // Reset the system timer immediately
     
     // 1. Simulate finding a new post
     const newLead = generateMockLead();
     
     // 2. Add to list as processing
-    setLeads(prev => [newLead, ...prev]);
+    if (isMounted.current) {
+      setLeads(prev => [newLead, ...prev]);
+    }
 
     // 3. AI Analysis with Negative Keywords (Mitigation for Hallucinations)
     const analysis = await analyzePostWithGemini(
@@ -31,6 +45,9 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
       config.negativeKeywords
     );
     
+    // Check if still mounted after await
+    if (!isMounted.current) return;
+
     let updatedLead = { 
       ...newLead, 
       aiScore: analysis.score, 
@@ -45,18 +62,27 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
     // 4. If qualified, run Enrichment
     if (analysis.isRelevant && config.enrichmentEnabled) {
       updatedLead = await simulateEnrichment(updatedLead);
+      
+      // Check if still mounted after 2nd await
+      if (!isMounted.current) return;
+      
       setLeads(prev => prev.map(l => l.id === newLead.id ? updatedLead : l));
     }
 
-    setIsScanning(false);
+    if (isMounted.current) {
+      setIsScanning(false);
+    }
   };
 
   const handleBatchSync = async () => {
     setIsSyncing(true);
     // Simulate API call to Append Rows to Google Sheets
     await new Promise(resolve => setTimeout(resolve, 2000));
-    setPendingSyncCount(0);
-    setIsSyncing(false);
+    
+    if (isMounted.current) {
+      setPendingSyncCount(0);
+      setIsSyncing(false);
+    }
   };
 
   const exportToCSV = () => {
@@ -74,6 +100,22 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
     a.href = url;
     a.download = `leads_export_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+  };
+
+  const handleApprove = (id: string) => {
+    // Sets status to QUALIFIED (Green)
+    setLeads(prev => prev.map(l => l.id === id ? { ...l, status: LeadStatus.QUALIFIED } : l));
+  };
+
+  const handleDisqualify = (id: string) => {
+    // Sets status to DISQUALIFIED (Red)
+    setLeads(prev => prev.map(l => l.id === id ? { ...l, status: LeadStatus.DISQUALIFIED } : l));
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this lead?')) {
+      setLeads(prev => prev.filter(l => l.id !== id));
+    }
   };
 
   return (
@@ -136,7 +178,7 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
                 <th className="px-6 py-4">Post Context</th>
                 <th className="px-6 py-4">AI Analysis</th>
                 <th className="px-6 py-4">Contact Data</th>
-                <th className="px-6 py-4">Actions</th>
+                <th className="px-6 py-4 w-28">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -206,9 +248,34 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                        <MoreHorizontal className="w-5 h-5" />
-                      </button>
+                      <div className="flex items-center space-x-3">
+                        {/* Qualify Button */}
+                        <button 
+                          onClick={() => handleApprove(lead.id)}
+                          className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors p-1 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+                          aria-label="Qualify Lead"
+                        >
+                          <CheckCircle className="w-5 h-5" />
+                        </button>
+                        
+                        {/* Disqualify Button */}
+                        <button 
+                          onClick={() => handleDisqualify(lead.id)}
+                          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                          aria-label="Disqualify Lead"
+                        >
+                          <XCircle className="w-5 h-5" />
+                        </button>
+                        
+                        {/* Delete Button */}
+                        <button 
+                          onClick={() => handleDelete(lead.id)}
+                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                          aria-label="Delete Lead"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
