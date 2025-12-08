@@ -36,3 +36,13 @@
   },
   "homepage": "https://github.com/janmaaarc/link-scout-ai#readme"
 }
+{
+  "name": "link-scout-ai",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build", // This is the important line
+    "preview": "vite preview"
+  },
+  // ... other dependencies
+}
