@@ -1,8 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { WorkflowConfig } from '../types';
-import { Save, Plus, AlertCircle, Shield, AlertTriangle, Database, Webhook, Server, Activity, Key } from 'lucide-react';
+import { Save, Plus, AlertCircle, Shield, AlertTriangle, Database, Webhook, Server, Activity, Key, CheckCircle, Info } from 'lucide-react';
 import { ToastType } from '../components/Toast';
+
+// Check if API key is set via environment variable
+const hasEnvApiKey = (): boolean => {
+  return !!import.meta.env.VITE_GEMINI_API_KEY;
+};
 
 interface WorkflowConfigProps {
   config: WorkflowConfig;
@@ -91,19 +96,45 @@ export const WorkflowConfigPage: React.FC<WorkflowConfigProps> = ({ config, setC
           <Key className="w-5 h-5 text-purple-600 dark:text-purple-400 mr-2" />
           AI Service Configuration
         </h2>
+
+        {/* Environment Variable Status */}
+        {hasEnvApiKey() ? (
+          <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-start gap-2">
+            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-green-800 dark:text-green-300">API Key configured via environment variable</p>
+              <p className="text-xs text-green-700 dark:text-green-400 mt-0.5">Your API key is securely set in VITE_GEMINI_API_KEY.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Security Warning</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                For production, set <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">VITE_GEMINI_API_KEY</code> in your .env.local file.
+                Browser storage below is for development only.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Gemini API Key
+                Gemini API Key {hasEnvApiKey() && <span className="text-green-600 dark:text-green-400 text-xs">(Override)</span>}
             </label>
-            <input 
-                type="password" 
-                placeholder="AIzaSy..."
+            <input
+                type="password"
+                placeholder={hasEnvApiKey() ? "Using environment variable..." : "AIzaSy..."}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg font-mono text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-colors"
+                disabled={hasEnvApiKey()}
+                className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg font-mono text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-colors ${hasEnvApiKey() ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              Required for real AI analysis and email drafting. Key is saved locally in your browser.
+              {hasEnvApiKey()
+                ? "API key is set via environment variable. Remove VITE_GEMINI_API_KEY to use browser storage."
+                : "Required for real AI analysis and email drafting."}
             </p>
         </div>
       </div>
@@ -196,17 +227,34 @@ export const WorkflowConfigPage: React.FC<WorkflowConfigProps> = ({ config, setC
           <div className="mt-4">
              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Scan Frequency (Minutes)</label>
              <div className="flex items-center space-x-4">
-               <input 
-                  type="number" 
+               <input
+                  type="number"
+                  min={15}
+                  max={1440}
                   value={config.scanFrequencyMinutes || ''}
                   onChange={(e) => {
                     const val = parseInt(e.target.value);
-                    // FIX: Handle NaN to prevent sidebar crash
-                    setConfig({...config, scanFrequencyMinutes: isNaN(val) ? 0 : val});
+                    // Handle NaN and enforce min/max bounds
+                    if (isNaN(val) || e.target.value === '') {
+                      // Allow empty for typing, but will use default on blur
+                      setConfig({...config, scanFrequencyMinutes: 0});
+                    } else {
+                      // Clamp value between 15 and 1440 minutes (1 day)
+                      const clampedVal = Math.min(Math.max(val, 0), 1440);
+                      setConfig({...config, scanFrequencyMinutes: clampedVal});
+                    }
                   }}
-                  className={`w-32 px-4 py-2 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${config.scanFrequencyMinutes < 60 ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-300 dark:border-gray-600'}`}
+                  onBlur={(e) => {
+                    // Reset to default minimum if invalid or too low on blur
+                    const val = parseInt(e.target.value);
+                    if (isNaN(val) || val < 15) {
+                      setConfig({...config, scanFrequencyMinutes: 60});
+                      showToast("Scan frequency set to recommended minimum (60 mins)", "info");
+                    }
+                  }}
+                  className={`w-32 px-4 py-2 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none ${config.scanFrequencyMinutes > 0 && config.scanFrequencyMinutes < 60 ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-300 dark:border-gray-600'}`}
                 />
-                {config.scanFrequencyMinutes < 60 && (
+                {config.scanFrequencyMinutes > 0 && config.scanFrequencyMinutes < 60 && (
                   <div className="flex items-center text-red-600 dark:text-red-400 text-sm animate-pulse">
                     <AlertTriangle className="w-4 h-4 mr-1" />
                     <span className="hidden sm:inline">High Risk: Recommended 60+ mins</span>
@@ -215,7 +263,7 @@ export const WorkflowConfigPage: React.FC<WorkflowConfigProps> = ({ config, setC
                 )}
              </div>
              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-               Frequent scanning triggers LinkedIn's anti-bot defenses.
+               Frequent scanning triggers LinkedIn's anti-bot defenses. Minimum: 15 mins, Max: 1440 mins (24h).
              </p>
           </div>
         </div>

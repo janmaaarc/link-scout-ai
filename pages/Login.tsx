@@ -1,31 +1,112 @@
-import React, { useState } from 'react';
-import { ScanSearch, Lock, User, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ScanSearch, Lock, User, ArrowRight, Loader2, AlertCircle, Clock } from 'lucide-react';
 
 interface LoginProps {
   onLogin: () => void;
 }
+
+// Get credentials from environment variables or use defaults for development
+const getCredentials = () => {
+  return {
+    username: import.meta.env.VITE_AUTH_USERNAME || 'admin',
+    password: import.meta.env.VITE_AUTH_PASSWORD || 'admin'
+  };
+};
+
+// Rate limiting constants
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 60; // seconds
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
+
+  // Load failed attempts from session storage
+  useEffect(() => {
+    const storedAttempts = sessionStorage.getItem('login_attempts');
+    const storedLockout = sessionStorage.getItem('login_lockout');
+
+    if (storedAttempts) {
+      setFailedAttempts(parseInt(storedAttempts, 10));
+    }
+    if (storedLockout) {
+      const lockoutTime = parseInt(storedLockout, 10);
+      if (lockoutTime > Date.now()) {
+        setLockoutUntil(lockoutTime);
+      } else {
+        sessionStorage.removeItem('login_lockout');
+        sessionStorage.removeItem('login_attempts');
+      }
+    }
+  }, []);
+
+  // Lockout countdown timer
+  useEffect(() => {
+    if (!lockoutUntil) return;
+
+    const interval = setInterval(() => {
+      const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setLockoutUntil(null);
+        setLockoutRemaining(0);
+        setFailedAttempts(0);
+        sessionStorage.removeItem('login_lockout');
+        sessionStorage.removeItem('login_attempts');
+      } else {
+        setLockoutRemaining(remaining);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lockoutUntil]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if locked out
+    if (lockoutUntil && lockoutUntil > Date.now()) {
+      setError(`Too many failed attempts. Try again in ${lockoutRemaining} seconds.`);
+      return;
+    }
+
     setError('');
     setIsLoading(true);
 
     // Simulate network delay for realism
     await new Promise(resolve => setTimeout(resolve, 800));
 
-    if (username === 'admin' && password === 'admin') {
+    const credentials = getCredentials();
+
+    if (username === credentials.username && password === credentials.password) {
+      // Reset attempts on successful login
+      sessionStorage.removeItem('login_attempts');
+      sessionStorage.removeItem('login_lockout');
       onLogin();
     } else {
-      setError('Invalid credentials. Please try again.');
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+      sessionStorage.setItem('login_attempts', newAttempts.toString());
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        const lockoutTime = Date.now() + (LOCKOUT_DURATION * 1000);
+        setLockoutUntil(lockoutTime);
+        setLockoutRemaining(LOCKOUT_DURATION);
+        sessionStorage.setItem('login_lockout', lockoutTime.toString());
+        setError(`Too many failed attempts. Account locked for ${LOCKOUT_DURATION} seconds.`);
+      } else {
+        const remaining = MAX_ATTEMPTS - newAttempts;
+        setError(`Invalid credentials. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`);
+      }
       setIsLoading(false);
     }
   };
+
+  const isLockedOut = lockoutUntil !== null && lockoutUntil > Date.now();
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200">
@@ -104,10 +185,15 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <div>
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || isLockedOut}
                 className="w-full flex justify-center items-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
               >
-                {isLoading ? (
+                {isLockedOut ? (
+                  <>
+                    <Clock className="w-4 h-4 mr-2" />
+                    Locked ({lockoutRemaining}s)
+                  </>
+                ) : isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Authenticating...

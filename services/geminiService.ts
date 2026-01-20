@@ -1,11 +1,18 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Helper to get API key (Environment Variable OR LocalStorage for User Override)
-const getApiKey = () => {
+// Helper to get API key from environment variable (secure) or localStorage fallback (dev only)
+const getApiKey = (): string => {
+  // Priority 1: Vite environment variable (recommended for production)
+  const envKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (envKey) return envKey;
+
+  // Priority 2: localStorage fallback (for development/demo purposes only)
+  // WARNING: localStorage is not secure for production use
   const localKey = localStorage.getItem('gemini_api_key');
   if (localKey) return localKey;
-  return process.env.API_KEY || '';
+
+  return '';
 }
 
 const createAI = () => {
@@ -68,13 +75,13 @@ export const analyzePostWithGemini = async (postContent: string, keywords: strin
     if (!text) throw new Error("Empty response from Gemini API");
     return JSON.parse(text) as AiAnalysisResult;
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Gemini Analysis Failed", error);
 
     // 2. API Errors: Return specific error reasoning instead of Mock Data
     let errorMessage = "AI Analysis failed due to an unknown error.";
-    
-    const errString = error.toString().toLowerCase();
+
+    const errString = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
 
     if (errString.includes('403') || errString.includes('key') || errString.includes('permission')) {
       errorMessage = "Error: Invalid API Key. Please update it in Workflow Config.";
@@ -125,10 +132,10 @@ export const generateDraftEmail = async (leadName: string, company: string, post
     if (!response.text) throw new Error("Empty response from Gemini API");
     return response.text;
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Gemini Email Gen Failed", error);
-    
-    const errString = error.toString().toLowerCase();
+
+    const errString = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
     if (errString.includes('403') || errString.includes('key')) {
       return "Error: Invalid API Key. Please check your Workflow Config.";
     }

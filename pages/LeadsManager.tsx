@@ -1,12 +1,23 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Lead, LeadStatus, EnrichmentStatus, WorkflowConfig } from '../types';
-import { ExternalLink, Mail, Phone, FileSpreadsheet, CheckCircle, XCircle, Loader2, Database, ArrowRight, Trash2, Search, Filter, Plus, Download, AlertTriangle, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { ExternalLink, Mail, Phone, FileSpreadsheet, CheckCircle, XCircle, Loader2, Database, ArrowRight, Trash2, Search, Filter, Plus, Download, AlertTriangle, ChevronLeft, ChevronRight, Clock, AlertCircle } from 'lucide-react';
 import { generateMockLead, simulateEnrichment } from '../services/mockDataService';
 import { analyzePostWithGemini } from '../services/geminiService';
 import { ToastType } from '../components/Toast';
 import { LeadDetailDrawer } from '../components/LeadDetailDrawer';
 import { AddLeadModal } from '../components/AddLeadModal';
+
+// CSV escape helper
+const escapeCSV = (value: string | number | undefined): string => {
+  if (value === undefined || value === null) return '';
+  const str = String(value);
+  // Escape quotes and wrap in quotes if contains comma, newline, or quote
+  if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+};
 
 interface LeadsManagerProps {
   leads: Lead[];
@@ -37,6 +48,13 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
   // Add Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  // Delete Confirmation State
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; leadId: string | null; leadName: string }>({
+    isOpen: false,
+    leadId: null,
+    leadName: ''
+  });
+
   // FIX: Track component mount status to prevent memory leaks/errors on unmount
   const isMounted = useRef(true);
 
@@ -47,18 +65,21 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
     };
   }, []);
 
-  // Filter Logic
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = 
-      lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.postContent.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'ALL' || lead.status === statusFilter;
+  // Filter Logic - Memoized for performance
+  const filteredLeads = useMemo(() => {
+    return leads.filter(lead => {
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch =
+        lead.name.toLowerCase().includes(searchLower) ||
+        lead.company.toLowerCase().includes(searchLower) ||
+        lead.title.toLowerCase().includes(searchLower) ||
+        lead.postContent.toLowerCase().includes(searchLower);
 
-    return matchesSearch && matchesStatus;
-  });
+      const matchesStatus = statusFilter === 'ALL' || lead.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [leads, searchQuery, statusFilter]);
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
@@ -141,13 +162,56 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
 
   const handleBatchSync = async () => {
     setIsSyncing(true);
-    // Simulate API call to Append Rows to Google Sheets
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
+    // Get qualified leads to sync
+    const leadsToSync = leads.filter(l =>
+      l.status === LeadStatus.QUALIFIED ||
+      l.status === LeadStatus.CONTACTED ||
+      l.status === LeadStatus.REPLIED
+    );
+
+    if (leadsToSync.length === 0) {
+      showToast("No qualified leads to sync.", "info");
+      setIsSyncing(false);
+      return;
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const lead of leadsToSync) {
+      try {
+        const response = await fetch('/api/writeToSheet', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(lead),
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          errorCount++;
+          console.error('Failed to sync lead:', lead.id);
+        }
+      } catch (error) {
+        errorCount++;
+        console.error('Error syncing lead:', lead.id, error);
+      }
+    }
+
     if (isMounted.current) {
       setPendingSyncCount(0);
       setIsSyncing(false);
-      showToast("Sync to Google Sheets successful!", "success");
+
+      if (errorCount === 0) {
+        showToast(`Successfully synced ${successCount} leads to Google Sheets!`, "success");
+      } else if (successCount > 0) {
+        showToast(`Synced ${successCount} leads. ${errorCount} failed.`, "info");
+      } else {
+        showToast("Failed to sync leads. Check your Google Sheets configuration.", "error");
+      }
     }
   };
 
@@ -156,17 +220,26 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
     const csvContent = [
       headers.join(","),
       ...filteredLeads.map(l => [
-        l.name, l.company, l.title, l.email || "", l.phone || "", l.aiScore, l.status, l.linkedinUrl, l.foundAt
+        escapeCSV(l.name),
+        escapeCSV(l.company),
+        escapeCSV(l.title),
+        escapeCSV(l.email),
+        escapeCSV(l.phone),
+        escapeCSV(l.aiScore),
+        escapeCSV(l.status),
+        escapeCSV(l.linkedinUrl),
+        escapeCSV(l.foundAt)
       ].join(","))
     ].join("\n");
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `leads_export_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
-    showToast(`Exported ${filteredLeads.length} rows to CSV.`, "success");
+    window.URL.revokeObjectURL(url);
+    showToast(`Exported ${filteredLeads.length} leads to CSV.`, "success");
   };
 
   const handleApprove = (e: React.MouseEvent, id: string) => {
@@ -181,10 +254,21 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
     showToast("Lead Disqualified.", "info");
   };
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation(); 
-    setLeads(prev => prev.filter(l => l.id !== id));
-    showToast("Lead deleted.", "error");
+  const handleDelete = (e: React.MouseEvent, lead: Lead) => {
+    e.stopPropagation();
+    setDeleteConfirm({ isOpen: true, leadId: lead.id, leadName: lead.name });
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirm.leadId) {
+      setLeads(prev => prev.filter(l => l.id !== deleteConfirm.leadId));
+      showToast("Lead deleted.", "error");
+    }
+    setDeleteConfirm({ isOpen: false, leadId: null, leadName: '' });
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm({ isOpen: false, leadId: null, leadName: '' });
   };
 
   const openDrawer = (lead: Lead) => {
@@ -429,9 +513,10 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
                             <XCircle className="w-5 h-5" />
                           </button>
                           
-                          <button 
-                            onClick={(e) => handleDelete(e, lead.id)}
+                          <button
+                            onClick={(e) => handleDelete(e, lead)}
                             className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 group-hover/delete:text-red-600 transition-colors p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                            aria-label={`Delete ${lead.name}`}
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
@@ -498,11 +583,42 @@ export const LeadsManager: React.FC<LeadsManagerProps> = ({ leads, setLeads, con
         }}
       />
 
-      <AddLeadModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        onAdd={handleAddManualLead} 
+      <AddLeadModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAdd={handleAddManualLead}
       />
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm.isOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
+                <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete Lead?</h3>
+            </div>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Are you sure you want to delete <span className="font-semibold">{deleteConfirm.leadName}</span>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
